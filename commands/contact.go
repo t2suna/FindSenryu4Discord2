@@ -153,6 +153,8 @@ func HandleContactModalSubmit(s *discordgo.Session, i *discordgo.InteractionCrea
 	conf := config.GetConf()
 	contactChannelID := conf.Admin.ContactChannelID
 
+	// customID に送信元チャンネルIDも埋め込む (contact_reply:userID:channelID)
+	replyTarget := userID + ":" + i.ChannelID
 	_, err := s.ChannelMessageSendComplex(contactChannelID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{embed},
 		Components: []discordgo.MessageComponent{
@@ -161,7 +163,7 @@ func HandleContactModalSubmit(s *discordgo.Session, i *discordgo.InteractionCrea
 					discordgo.Button{
 						Label:    "返信",
 						Style:    discordgo.PrimaryButton,
-						CustomID: ContactReplyPrefix + userID,
+						CustomID: ContactReplyPrefix + replyTarget,
 					},
 				},
 			},
@@ -176,14 +178,24 @@ func HandleContactModalSubmit(s *discordgo.Session, i *discordgo.InteractionCrea
 	respondEphemeral(s, i, "お問い合わせを送信しました ✅")
 }
 
+// parseReplyTarget parses "userID:channelID" from customID payload.
+// Falls back to treating the entire string as userID for backwards compatibility.
+func parseReplyTarget(payload string) (userID, channelID string) {
+	parts := strings.SplitN(payload, ":", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return payload, ""
+}
+
 // HandleContactReplyButton handles the reply button click on contact messages
 func HandleContactReplyButton(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	targetUserID := strings.TrimPrefix(i.MessageComponentData().CustomID, ContactReplyPrefix)
+	payload := strings.TrimPrefix(i.MessageComponentData().CustomID, ContactReplyPrefix)
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID: ReplyModalPrefix + targetUserID,
+			CustomID: ReplyModalPrefix + payload,
 			Title:    "返信",
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
@@ -206,18 +218,10 @@ func HandleContactReplyButton(s *discordgo.Session, i *discordgo.InteractionCrea
 // HandleContactReplyModalSubmit handles the reply modal submission
 func HandleContactReplyModalSubmit(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ModalSubmitData()
-	targetUserID := strings.TrimPrefix(data.CustomID, ReplyModalPrefix)
+	payload := strings.TrimPrefix(data.CustomID, ReplyModalPrefix)
+	targetUserID, sourceChannelID := parseReplyTarget(payload)
 	replyMessage := getModalInputValue(data, ReplyMessageInputID)
 
-	// DM チャンネル作成
-	dmChannel, err := s.UserChannelCreate(targetUserID)
-	if err != nil {
-		logger.Error("Failed to create DM channel", "error", err, "user_id", targetUserID)
-		respondEphemeral(s, i, "ユーザーへの DM 送信に失敗しました")
-		return
-	}
-
-	// DM に返信 Embed を送信
 	replyEmbed := &discordgo.MessageEmbed{
 		Title:       "お問い合わせへの返信",
 		Description: replyMessage,
@@ -229,11 +233,36 @@ func HandleContactReplyModalSubmit(s *discordgo.Session, i *discordgo.Interactio
 		Timestamp: time.Now().Format(time.RFC3339),
 	}
 
-	_, err = s.ChannelMessageSendEmbed(dmChannel.ID, replyEmbed)
-	if err != nil {
-		logger.Error("Failed to send DM reply", "error", err, "user_id", targetUserID)
-		respondEphemeral(s, i, "ユーザーへの DM 送信に失敗しました")
-		return
+	// まずDMで返信を試みる
+	sentViaDM := false
+	dmChannel, err := s.UserChannelCreate(targetUserID)
+	if err == nil {
+		_, err = s.ChannelMessageSendEmbed(dmChannel.ID, replyEmbed)
+		if err == nil {
+			sentViaDM = true
+		}
+	}
+
+	// DM失敗時、送信元チャンネルにメンション付きで返信
+	if !sentViaDM {
+		logger.Warn("DM reply failed, falling back to channel reply",
+			"error", err, "user_id", targetUserID, "channel_id", sourceChannelID)
+
+		if sourceChannelID == "" {
+			respondEphemeral(s, i, "DMの送信に失敗しました。送信元チャンネルの情報がないため、返信できませんでした。")
+			return
+		}
+
+		_, err = s.ChannelMessageSendComplex(sourceChannelID, &discordgo.MessageSend{
+			Content: fmt.Sprintf("<@%s> お問い合わせへの返信です:", targetUserID),
+			Embeds:  []*discordgo.MessageEmbed{replyEmbed},
+		})
+		if err != nil {
+			logger.Error("Failed to send channel reply", "error", err,
+				"user_id", targetUserID, "channel_id", sourceChannelID)
+			respondEphemeral(s, i, "DMおよびチャンネルへの返信に失敗しました。")
+			return
+		}
 	}
 
 	// 元のメッセージを更新: 返信済みフィールド追加 + ボタン無効化
@@ -245,11 +274,16 @@ func HandleContactReplyModalSubmit(s *discordgo.Session, i *discordgo.Interactio
 			replierName = i.User.Username
 		}
 
+		replyMethod := "DM"
+		if !sentViaDM {
+			replyMethod = channelLabel(s, sourceChannelID)
+		}
+
 		embeds := i.Message.Embeds
 		if len(embeds) > 0 {
 			embeds[0].Fields = append(embeds[0].Fields, &discordgo.MessageEmbedField{
 				Name:   "返信済み",
-				Value:  fmt.Sprintf("%s が返信しました", replierName),
+				Value:  fmt.Sprintf("%s が %s で返信しました", replierName, replyMethod),
 				Inline: false,
 			})
 		}
@@ -264,7 +298,7 @@ func HandleContactReplyModalSubmit(s *discordgo.Session, i *discordgo.Interactio
 						discordgo.Button{
 							Label:    "返信済み",
 							Style:    discordgo.SecondaryButton,
-							CustomID: ContactReplyPrefix + targetUserID,
+							CustomID: ContactReplyPrefix + payload,
 							Disabled: true,
 						},
 					},
@@ -273,7 +307,21 @@ func HandleContactReplyModalSubmit(s *discordgo.Session, i *discordgo.Interactio
 		})
 	}
 
-	respondEphemeral(s, i, "返信を送信しました ✅")
+	if sentViaDM {
+		respondEphemeral(s, i, "DMで返信を送信しました ✅")
+	} else {
+		respondEphemeral(s, i, fmt.Sprintf("DMの送信に失敗したため、%s に返信しました ✅", channelLabel(s, sourceChannelID)))
+	}
+}
+
+// channelLabel returns a human-readable channel name with ID.
+// Bot can resolve the channel name via API even if the admin user cannot see it.
+func channelLabel(s *discordgo.Session, channelID string) string {
+	ch, err := s.Channel(channelID)
+	if err != nil {
+		return fmt.Sprintf("チャンネル (`%s`)", channelID)
+	}
+	return fmt.Sprintf("#%s (`%s`)", ch.Name, channelID)
 }
 
 // getModalInputValue extracts a text input value from modal submit data

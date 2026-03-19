@@ -3,15 +3,16 @@ module github.com/u16-io/FindSenryu4Discord
 go 1.24.0
 
 require (
-	github.com/0x307e/go-haiku v0.0.0-20260102132348-2d52455731fb
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/cockroachdb/errors v1.11.3
+	github.com/ikawaha/kagome-dict/uni v1.1.9
 	github.com/jinzhu/gorm v1.9.16
 	github.com/knadh/koanf/parsers/toml v0.1.0
 	github.com/knadh/koanf/providers/env v1.0.0
 	github.com/knadh/koanf/providers/file v1.1.2
 	github.com/knadh/koanf/v2 v2.1.2
 	github.com/lib/pq v1.10.9
+	github.com/mattn/go-haiku v0.0.44
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/prometheus/client_golang v1.20.5
 )
@@ -26,6 +27,8 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/ikawaha/kagome-dict v1.0.9 // indirect
+	github.com/ikawaha/kagome/v2 v2.9.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/knadh/koanf/maps v0.1.1 // indirect
@@ -40,7 +43,6 @@ require (
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/yukihir0/mecab-go v0.0.0-20160130092356-8e15ac418ac7 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect

@@ -22,7 +22,8 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/pkg/permissions"
 	"github.com/u16-io/FindSenryu4Discord/service"
 
-	"github.com/0x307e/go-haiku"
+	"github.com/ikawaha/kagome-dict/uni"
+	"github.com/mattn/go-haiku"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -108,6 +109,9 @@ var (
 
 func main() {
 	startTime = time.Now()
+
+	// Initialize haiku dictionary
+	haiku.UseDict(uni.Dict())
 
 	// Load configuration
 	conf, err := config.Load("config.toml")

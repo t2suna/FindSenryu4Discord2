@@ -353,7 +353,9 @@ func onConnect(s *discordgo.Session, _ *discordgo.Connect) {
 func countAllGuilds() int {
 	total := 0
 	for _, s := range allSessions {
-		total += len(s.State.Guilds)
+		if s != nil {
+			total += len(s.State.Guilds)
+		}
 	}
 	return total
 }

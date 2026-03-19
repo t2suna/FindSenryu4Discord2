@@ -29,12 +29,13 @@ import (
 )
 
 var (
-	startTime         time.Time
-	adminNotifier     *adminnotify.Manager
-	botReady          atomic.Bool
-	guildCacheTimer   atomic.Pointer[time.Timer]
-	guildCacheSession atomic.Pointer[discordgo.Session]
-	allSessions       []*discordgo.Session
+	startTime       time.Time
+	adminNotifier   *adminnotify.Manager
+	botReady        atomic.Bool
+	guildCacheTimer atomic.Pointer[time.Timer]
+	allSessions     []*discordgo.Session
+	expectedShards  atomic.Int32
+	connectedShards atomic.Int32
 
 	// adminPermission is used for DefaultMemberPermissions on admin-only commands.
 	adminPermission int64 = discordgo.PermissionAdministrator
@@ -177,6 +178,7 @@ func main() {
 		discordgo.IntentMessageContent
 
 	// Create and open sessions for each shard
+	expectedShards.Store(int32(shardCount))
 	allSessions = make([]*discordgo.Session, shardCount)
 	for i := 0; i < shardCount; i++ {
 		s, err := discordgo.New("Bot " + conf.Discord.Token)
@@ -249,11 +251,6 @@ func main() {
 
 	// Update game status
 	dg.UpdateGameStatus(1, conf.Discord.Playing)
-
-	// Log connected guilds (aggregate across all shards)
-	totalGuilds := countAllGuilds()
-	logger.Info("Connected guilds", "count", totalGuilds, "shards", shardCount)
-	metrics.SetConnectedGuilds(totalGuilds)
 
 	// Update database stats in metrics
 	dbStats := db.GetStats()
@@ -345,9 +342,13 @@ func main() {
 }
 
 func onConnect(s *discordgo.Session, _ *discordgo.Connect) {
-	logger.Info("Gateway connected, caching guilds...")
+	n := connectedShards.Add(1)
+	logger.Info("Gateway connected, caching guilds...", "shard", s.ShardID, "connected_shards", n, "expected_shards", expectedShards.Load())
 	botReady.Store(false)
-	guildCacheSession.Store(s)
+	// Reset debounce timer on new shard connection to prevent premature ready
+	if t := guildCacheTimer.Load(); t != nil {
+		t.Stop()
+	}
 }
 
 func countAllGuilds() int {
@@ -370,7 +371,18 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 			t.Stop()
 		}
 		t := time.AfterFunc(5*time.Second, func() {
-			logger.Info("Guild cache complete, bot is ready", "guilds", countAllGuilds())
+			if connectedShards.Load() < expectedShards.Load() {
+				// Not all shards connected yet; wait for remaining shards
+				logger.Info("Guild cache paused, waiting for remaining shards",
+					"guilds", countAllGuilds(),
+					"connected_shards", connectedShards.Load(),
+					"expected_shards", expectedShards.Load(),
+				)
+				return
+			}
+			total := countAllGuilds()
+			logger.Info("Guild cache complete, bot is ready", "guilds", total, "shards", expectedShards.Load())
+			metrics.SetConnectedGuilds(total)
 			botReady.Store(true)
 		})
 		guildCacheTimer.Store(t)

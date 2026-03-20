@@ -68,6 +68,34 @@ func TestIsChannelTypeEnabled_未知のタイプは無効(t *testing.T) {
 	}
 }
 
+func TestContainsDiscordTokens(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"ユーザーメンション", "<@123456789> こんにちは", true},
+		{"ニックネーム付きメンション", "<@!123456789> こんにちは", true},
+		{"チャンネルメンション", "<#987654321> で話しましょう", true},
+		{"ロールメンション", "<@&111222333> に連絡", true},
+		{"カスタム絵文字", "すごい <:emoji:123456> ですね", true},
+		{"アニメーション絵文字", "楽しい <a:dance:789012> 時間", true},
+		{"URL_https", "詳細は https://example.com を参照", true},
+		{"URL_http", "リンク http://example.com です", true},
+		{"トークンなし", "古池や蛙飛び込む水の音", false},
+		{"空文字列", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := containsDiscordTokens(tt.input)
+			if got != tt.want {
+				t.Errorf("containsDiscordTokens(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsParentChannelMuted_親チャンネルがミュート(t *testing.T) {
 	setupTestDB(t)
 

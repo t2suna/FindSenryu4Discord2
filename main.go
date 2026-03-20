@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -507,6 +508,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if service.IsDetectionOptedOut(m.GuildID, m.Author.ID) {
 				return
 			}
+			if containsDiscordTokens(m.Content) {
+				return
+			}
 			h := haiku.Find(m.Content, []int{5, 7, 5})
 			if len(h) != 0 {
 				senryu := strings.Split(h[0], " ")
@@ -719,6 +723,21 @@ func sliceUnique(target []string) (unique []string) {
 		}
 	}
 	return unique
+}
+
+// containsDiscordTokens reports whether s contains Discord-specific tokens
+// (mentions, channels, roles, custom emoji, URLs) that should exclude
+// the message from haiku detection.
+var reDiscordTokens = regexp.MustCompile(
+	`<@!?\d+>` + // user mentions
+		`|<#\d+>` + // channel mentions
+		`|<@&\d+>` + // role mentions
+		`|<a?:\w+:\d+>` + // custom emoji
+		`|https?://\S+`, // URLs
+)
+
+func containsDiscordTokens(s string) bool {
+	return reDiscordTokens.MatchString(s)
 }
 
 func getWriters(senryus []model.Senryu, guildID string, session *discordgo.Session) []string {

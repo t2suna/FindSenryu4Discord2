@@ -130,7 +130,7 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 	dbStats := db.GetStats()
 
 	// Update metrics
-	metrics.SetDatabaseStats(dbStats.SenryuCount, dbStats.MutedChannelCount)
+	metrics.SetDatabaseStats(dbStats.SenryuCount, dbStats.MutedChannelCount, dbStats.OptOutCount)
 
 	stats := map[string]interface{}{
 		"senryu_count":        dbStats.SenryuCount,

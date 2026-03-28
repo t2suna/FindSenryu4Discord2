@@ -148,6 +148,7 @@ func GetDB() *gorm.DB {
 type Stats struct {
 	SenryuCount       int64
 	MutedChannelCount int64
+	OptOutCount       int64
 	IsConnected       bool
 }
 
@@ -160,6 +161,7 @@ func GetStats() Stats {
 	if DB != nil {
 		DB.Model(&model.Senryu{}).Count(&stats.SenryuCount)
 		DB.Model(&model.MutedChannel{}).Count(&stats.MutedChannelCount)
+		DB.Model(&model.DetectionOptOut{}).Count(&stats.OptOutCount)
 	}
 
 	return stats

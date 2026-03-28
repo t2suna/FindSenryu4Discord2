@@ -90,14 +90,6 @@ var (
 		},
 	)
 
-	// AutoOptOutTotal is the total number of automatic opt-outs triggered by rollback
-	AutoOptOutTotal = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "findsenryu_auto_opt_out_total",
-			Help: "Total number of automatic opt-outs triggered by reply rollback",
-		},
-	)
-
 	// AutoMuteTotal is the total number of automatic channel mutes triggered by Bot permission errors
 	AutoMuteTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
@@ -152,11 +144,6 @@ func SetDiscordLatency(latencyMs float64) {
 // SetOptedOutUsers sets the current number of opted-out users
 func SetOptedOutUsers(count int64) {
 	OptedOutUsersTotal.Set(float64(count))
-}
-
-// RecordAutoOptOut records an automatic opt-out triggered by rollback
-func RecordAutoOptOut() {
-	AutoOptOutTotal.Inc()
 }
 
 // RecordAutoMute records an automatic channel mute triggered by Bot permission error

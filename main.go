@@ -556,9 +556,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					} else {
 						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
 					}
-					// 権限系エラー(4xx)の場合のみ自動オプトアウト。
-					// Discord API障害(5xx)やタイムアウトでは誤判定を避けるためスキップ。
-					if isClientError(err) {
+					// ユーザー起因のエラーのみ自動オプトアウト。
+					// Bot権限不足やDiscord API障害では誤判定を避けるためスキップ。
+					if isUserCausedError(err) {
 						if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
 							logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
 						} else {
@@ -787,12 +787,15 @@ func stripSpoilerMarkers(s string) string {
 	return strings.ReplaceAll(s, "||", "")
 }
 
-// isClientError returns true if the error is a Discord REST 4xx client error.
-func isClientError(err error) bool {
+// isUserCausedError returns true if the error is a Discord API error
+// caused by the target user (e.g. blocked DM), not by Bot permission issues.
+func isUserCausedError(err error) bool {
 	var restErr *discordgo.RESTError
-	if errors.As(err, &restErr) && restErr.Response != nil {
-		code := restErr.Response.StatusCode
-		return code >= 400 && code < 500
+	if errors.As(err, &restErr) && restErr.Message != nil {
+		switch restErr.Message.Code {
+		case 50007: // Cannot send messages to this user
+			return true
+		}
 	}
 	return false
 }

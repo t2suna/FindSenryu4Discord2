@@ -556,12 +556,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					} else {
 						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
 					}
-					// ロールバックが発生したユーザーを自動的にオプトアウトに設定
-					if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
-						logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
-					} else {
-						metrics.RecordAutoOptOut()
-						logger.Warn("Auto opted-out user after reply rollback", "user_id", m.Author.ID, "server_id", m.GuildID, "channel_id", m.ChannelID)
+					// 権限系エラー(4xx)の場合のみ自動オプトアウト。
+					// Discord API障害(5xx)やタイムアウトでは誤判定を避けるためスキップ。
+					if isClientError(err) {
+						if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
+							logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
+						} else {
+							metrics.RecordAutoOptOut()
+							logger.Warn("Auto opted-out user after reply rollback", "user_id", m.Author.ID, "server_id", m.GuildID, "channel_id", m.ChannelID)
+						}
 					}
 				}
 			}
@@ -782,6 +785,16 @@ func containsSpoiler(s string) bool {
 
 func stripSpoilerMarkers(s string) string {
 	return strings.ReplaceAll(s, "||", "")
+}
+
+// isClientError returns true if the error is a Discord REST 4xx client error.
+func isClientError(err error) bool {
+	var restErr *discordgo.RESTError
+	if errors.As(err, &restErr) && restErr.Response != nil {
+		code := restErr.Response.StatusCode
+		return code >= 400 && code < 500
+	}
+	return false
 }
 
 func getWriters(senryus []model.Senryu, guildID string, session *discordgo.Session) []string {

@@ -1,6 +1,8 @@
 package service
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/u16-io/FindSenryu4Discord/db"
 	"github.com/u16-io/FindSenryu4Discord/model"
@@ -13,13 +15,27 @@ var (
 	ErrOptInFailed  = errors.New("failed to opt in detection")
 )
 
+// optOutCache caches detection opt-out status in memory.
+// Key: "serverID:userID", Value: true (opted out).
+// Cache miss triggers a DB lookup and stores the result.
+var optOutCache sync.Map
+
+func optOutCacheKey(serverID, userID string) string {
+	return serverID + ":" + userID
+}
+
 // IsDetectionOptedOut checks if a user has opted out of detection in a server
 func IsDetectionOptedOut(serverID, userID string) bool {
-	var optOut model.DetectionOptOut
-	if err := db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).First(&optOut).Error; err != nil {
-		return false
+	key := optOutCacheKey(serverID, userID)
+	if cached, ok := optOutCache.Load(key); ok {
+		return cached.(bool)
 	}
-	return true
+
+	// Cache miss — load from DB
+	var optOut model.DetectionOptOut
+	isOptedOut := db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).First(&optOut).Error == nil
+	optOutCache.Store(key, isOptedOut)
+	return isOptedOut
 }
 
 // OptOutDetection opts a user out of detection in a server
@@ -37,6 +53,7 @@ func OptOutDetection(serverID, userID string) error {
 		return errors.Wrap(err, "failed to opt out detection")
 	}
 
+	optOutCache.Store(optOutCacheKey(serverID, userID), true)
 	logger.Info("User opted out of detection", "server_id", serverID, "user_id", userID)
 	return nil
 }
@@ -54,6 +71,16 @@ func DeleteOptOutByServer(serverID string) (int64, error) {
 		)
 		return 0, errors.Wrap(result.Error, "failed to delete opt-outs by server")
 	}
+
+	// Invalidate all cache entries for this server by clearing entire cache.
+	// This is acceptable because cache misses are cheap and server deletion is rare.
+	optOutCache.Range(func(key, _ any) bool {
+		k := key.(string)
+		if len(k) > len(serverID) && k[:len(serverID)+1] == serverID+":" {
+			optOutCache.Delete(key)
+		}
+		return true
+	})
 
 	logger.Info("Opt-outs deleted by server",
 		"server_id", serverID,
@@ -76,6 +103,7 @@ func OptInDetection(serverID, userID string) error {
 		return errors.Wrap(err, "failed to opt in detection")
 	}
 
+	optOutCache.Store(optOutCacheKey(serverID, userID), false)
 	logger.Info("User opted in to detection", "server_id", serverID, "user_id", userID)
 	return nil
 }

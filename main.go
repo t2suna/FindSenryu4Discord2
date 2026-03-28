@@ -24,9 +24,9 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/pkg/permissions"
 	"github.com/u16-io/FindSenryu4Discord/service"
 
-	"github.com/ikawaha/kagome-dict/uni"
 	"github.com/0x307e/go-haiku"
 	"github.com/bwmarrin/discordgo"
+	"github.com/ikawaha/kagome-dict/uni"
 )
 
 var (
@@ -645,7 +645,7 @@ func handleRankCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Type:      discordgo.EmbedTypeRich,
 		Title:     "サーバー内ランキング",
 		Timestamp: time.Now().Format(time.RFC3339),
-		Fields: []*discordgo.MessageEmbedField{},
+		Fields:    []*discordgo.MessageEmbedField{},
 	}
 	if guild != nil {
 		embed.Footer = &discordgo.MessageEmbedFooter{

@@ -258,7 +258,7 @@ func main() {
 
 	// Update database stats in metrics
 	dbStats := db.GetStats()
-	metrics.SetDatabaseStats(dbStats.SenryuCount, dbStats.MutedChannelCount)
+	metrics.SetDatabaseStats(dbStats.SenryuCount, dbStats.MutedChannelCount, dbStats.OptOutCount)
 
 	// Initialize admin notification manager
 	if conf.Admin.LogChannelID != "" || conf.Admin.ReportChannelID != "" {
@@ -555,6 +555,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 						logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
 					} else {
 						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
+					}
+					// ロールバックが発生したユーザーを自動的にオプトアウトに設定
+					if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
+						logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
+					} else {
+						metrics.RecordAutoOptOut()
+						logger.Warn("Auto opted-out user after reply rollback", "user_id", m.Author.ID, "server_id", m.GuildID, "channel_id", m.ChannelID)
 					}
 				}
 			}

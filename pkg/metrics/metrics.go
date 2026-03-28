@@ -81,6 +81,22 @@ var (
 			Help: "Discord API latency in milliseconds",
 		},
 	)
+
+	// OptedOutUsersTotal is the current number of opted-out users
+	OptedOutUsersTotal = promauto.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "findsenryu_opted_out_users_total",
+			Help: "Current number of opted-out users",
+		},
+	)
+
+	// AutoOptOutTotal is the total number of automatic opt-outs triggered by rollback
+	AutoOptOutTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "findsenryu_auto_opt_out_total",
+			Help: "Total number of automatic opt-outs triggered by reply rollback",
+		},
+	)
 )
 
 // RecordSenryuDetected records a senryu detection
@@ -114,12 +130,23 @@ func RecordDatabaseOperation(operation string) {
 }
 
 // SetDatabaseStats sets database statistics
-func SetDatabaseStats(senryuCount, mutedChannelCount int64) {
+func SetDatabaseStats(senryuCount, mutedChannelCount, optOutCount int64) {
 	SenryuStoredTotal.Set(float64(senryuCount))
 	MutedChannelsTotal.Set(float64(mutedChannelCount))
+	OptedOutUsersTotal.Set(float64(optOutCount))
 }
 
 // SetDiscordLatency sets the Discord API latency
 func SetDiscordLatency(latencyMs float64) {
 	DiscordLatency.Set(latencyMs)
+}
+
+// SetOptedOutUsers sets the current number of opted-out users
+func SetOptedOutUsers(count int64) {
+	OptedOutUsersTotal.Set(float64(count))
+}
+
+// RecordAutoOptOut records an automatic opt-out triggered by rollback
+func RecordAutoOptOut() {
+	AutoOptOutTotal.Inc()
 }

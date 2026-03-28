@@ -76,26 +76,36 @@ func GetLastSenryu(serverID string, userID string) (string, error) {
 func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
 	metrics.RecordDatabaseOperation("get_random_senryus")
 
-	var s []model.Senryu
-	if err := db.DB.Where("server_id = ? AND spoiler = ?", serverID, false).Find(&s).Error; err != nil {
+	var count int64
+	if err := db.DB.Model(&model.Senryu{}).Where("server_id = ? AND spoiler = ?", serverID, false).Count(&count).Error; err != nil {
 		metrics.RecordError("database")
-		logger.Warn("Failed to get senryus",
+		logger.Warn("Failed to count senryus",
 			"error", err,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to get senryus")
+		return nil, errors.Wrap(err, "failed to count senryus")
 	}
 
-	if len(s) == 0 {
+	if count == 0 {
 		return nil, nil
 	}
 
-	n := len(s)
-	return []model.Senryu{
-		s[rand.Intn(n)],
-		s[rand.Intn(n)],
-		s[rand.Intn(n)],
-	}, nil
+	result := make([]model.Senryu, 0, 3)
+	for i := 0; i < 3; i++ {
+		var s model.Senryu
+		offset := rand.Intn(int(count))
+		if err := db.DB.Where("server_id = ? AND spoiler = ?", serverID, false).Offset(offset).Limit(1).First(&s).Error; err != nil {
+			metrics.RecordError("database")
+			logger.Warn("Failed to get random senryu",
+				"error", err,
+				"server_id", serverID,
+			)
+			return nil, errors.Wrap(err, "failed to get random senryu")
+		}
+		result = append(result, s)
+	}
+
+	return result, nil
 }
 
 // RankResult represents a ranking entry

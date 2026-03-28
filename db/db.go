@@ -86,6 +86,11 @@ func initDB() error {
 		return err
 	}
 
+	// Add composite index for GetThreeRandomSenryus query performance
+	if err := DB.Exec("CREATE INDEX IF NOT EXISTS idx_senryus_server_spoiler ON senryus(server_id, spoiler)").Error; err != nil {
+		logger.Warn("Failed to create composite index idx_senryus_server_spoiler", "error", err)
+	}
+
 	// Backfill NULL spoiler values to false
 	if err := migrateSpoilerColumn(); err != nil {
 		logger.Error("Failed to migrate spoiler column", "error", err)

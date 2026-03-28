@@ -556,6 +556,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					} else {
 						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
 					}
+					// ロールバックが発生したユーザーを自動的にオプトアウトに設定
+					if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
+						logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
+					} else {
+						logger.Warn("Auto opted-out user after reply rollback", "user_id", m.Author.ID, "server_id", m.GuildID, "channel_id", m.ChannelID)
+					}
 				}
 			}
 		}

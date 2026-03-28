@@ -97,6 +97,14 @@ var (
 			Help: "Total number of automatic opt-outs triggered by reply rollback",
 		},
 	)
+
+	// AutoMuteTotal is the total number of automatic channel mutes triggered by Bot permission errors
+	AutoMuteTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "findsenryu_auto_mute_total",
+			Help: "Total number of automatic channel mutes triggered by Bot permission errors",
+		},
+	)
 )
 
 // RecordSenryuDetected records a senryu detection
@@ -149,4 +157,9 @@ func SetOptedOutUsers(count int64) {
 // RecordAutoOptOut records an automatic opt-out triggered by rollback
 func RecordAutoOptOut() {
 	AutoOptOutTotal.Inc()
+}
+
+// RecordAutoMute records an automatic channel mute triggered by Bot permission error
+func RecordAutoMute() {
+	AutoMuteTotal.Inc()
 }

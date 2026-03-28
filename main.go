@@ -556,14 +556,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					} else {
 						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
 					}
-					// ユーザー起因のエラーのみ自動オプトアウト。
-					// Bot権限不足やDiscord API障害では誤判定を避けるためスキップ。
-					if isUserCausedError(err) {
-						if optErr := service.OptOutDetection(m.GuildID, m.Author.ID); optErr != nil {
-							logger.Error("Failed to auto opt-out user after rollback", "error", optErr, "user_id", m.Author.ID, "server_id", m.GuildID)
+					// Bot権限不足エラーの場合、該当チャンネルを自動ミュート
+					if isBotPermissionError(err) {
+						if muteErr := service.ToMute(m.ChannelID, m.GuildID); muteErr != nil {
+							logger.Error("Failed to auto-mute channel after permission error", "error", muteErr, "channel_id", m.ChannelID)
 						} else {
-							metrics.RecordAutoOptOut()
-							logger.Warn("Auto opted-out user after reply rollback", "user_id", m.Author.ID, "server_id", m.GuildID, "channel_id", m.ChannelID)
+							metrics.RecordAutoMute()
+							logger.Warn("Auto-muted channel due to missing Bot permissions", "channel_id", m.ChannelID, "server_id", m.GuildID)
 						}
 					}
 				}
@@ -787,13 +786,15 @@ func stripSpoilerMarkers(s string) string {
 	return strings.ReplaceAll(s, "||", "")
 }
 
-// isUserCausedError returns true if the error is a Discord API error
-// caused by the target user (e.g. blocked DM), not by Bot permission issues.
-func isUserCausedError(err error) bool {
+// isBotPermissionError returns true if the error is a Discord API error
+// caused by missing Bot permissions on the channel.
+func isBotPermissionError(err error) bool {
 	var restErr *discordgo.RESTError
 	if errors.As(err, &restErr) && restErr.Message != nil {
 		switch restErr.Message.Code {
-		case 50007: // Cannot send messages to this user
+		case 50001, // Missing Access
+			50013,  // Missing Permissions
+			160002: // Cannot reply without permission to read message history
 			return true
 		}
 	}

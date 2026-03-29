@@ -1,6 +1,6 @@
 module github.com/u16-io/FindSenryu4Discord
 
-go 1.24.0
+go 1.26.1
 
 require (
 	github.com/0x307e/go-haiku v0.0.0-20260328142204-ab9a920132b1

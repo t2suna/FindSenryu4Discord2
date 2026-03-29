@@ -51,6 +51,9 @@ func NewServer(port int) *Server {
 	mux.HandleFunc("/ready", s.readyHandler)
 	mux.HandleFunc("/stats", s.statsHandler)
 
+	// pprof handlers (net/http/pprof registers on DefaultServeMux, so we forward explicitly)
+	mux.Handle("/debug/pprof/", http.DefaultServeMux)
+
 	return s
 }
 

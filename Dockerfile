@@ -10,7 +10,7 @@ COPY . .
 RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bot main.go
 
 # Runtime stage
-FROM gcr.io/distroless/base-debian12:nonroot
+FROM gcr.io/distroless/base-debian13:nonroot
 
 WORKDIR /app
 COPY --from=builder /build/bot /app/bot

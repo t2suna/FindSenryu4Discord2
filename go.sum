@@ -1,5 +1,3 @@
-github.com/0x307e/go-haiku v0.0.0-20260322130653-5657c5fab170 h1:5m2z3GrvuHLS2KeE+7P2CxyO/i7rMVxvbigNITCzgIk=
-github.com/0x307e/go-haiku v0.0.0-20260322130653-5657c5fab170/go.mod h1:AFxkLUJbj5HTSMCksfgb4V7LFxY3dTlDKdCjWoToyCI=
 github.com/0x307e/go-haiku v0.0.0-20260328142204-ab9a920132b1 h1:EPZy5Sfqm7teo5BQuwect2YpxdjSB28REBFsByO2RuU=
 github.com/0x307e/go-haiku v0.0.0-20260328142204-ab9a920132b1/go.mod h1:AFxkLUJbj5HTSMCksfgb4V7LFxY3dTlDKdCjWoToyCI=
 github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=

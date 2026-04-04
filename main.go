@@ -554,12 +554,12 @@ func (c *ConfigurableHandler) messageCreate(s *discordgo.Session, m *discordgo.M
 					c.Config.Admin.ReportSenryuChannelID,
 					replyText,
 				); err != nil {
-					logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
+					logger.Warn("Failed to send senryu reply", "error", err, "channel_id", c.Config.Admin.ReportSenryuChannelID)
 					// 返信に失敗した場合、保存した川柳を削除して整合性を保つ
 					if delErr := service.DeleteSenryu(int(created.ID), m.GuildID); delErr != nil {
 						logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
 					} else {
-						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
+						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", c.Config.Admin.ReportSenryuChannelID)
 					}
 					// Bot権限不足エラーの場合、該当チャンネルを自動ミュート
 					if isBotPermissionError(err) {

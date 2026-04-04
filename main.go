@@ -122,7 +122,7 @@ func main() {
 	haiku.UseDict(uni.Dict())
 
 	// Load configuration
-	conf, err := config.Load("config.toml")
+	conf, err := config.Load("/etc/secrets/config.toml")
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)

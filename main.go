@@ -111,6 +111,10 @@ var (
 	}
 )
 
+type ConfigurableHandler struct {
+	Config *config.Config
+}
+
 func main() {
 	startTime = time.Now()
 
@@ -123,6 +127,8 @@ func main() {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
 	}
+
+	cHandler := ConfigurableHandler{conf}
 
 	// Initialize logger
 	logger.Init(logger.Config{
@@ -191,7 +197,7 @@ func main() {
 		s.ShardCount = shardCount
 		s.Identify.Intents = intents
 
-		s.AddHandler(messageCreate)
+		s.AddHandler(cHandler.messageCreate)
 		s.AddHandler(interactionCreate)
 		s.AddHandler(guildCreate)
 		s.AddHandler(guildDelete)
@@ -471,7 +477,7 @@ func handleComponentInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 	}
 }
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+func (c *ConfigurableHandler) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author == nil || m.Author.Bot {
 		return
 	}
@@ -544,10 +550,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				if spoiler {
 					replyText = fmt.Sprintf("川柳を検出しました！\n||「%s」||", h[0])
 				}
-				if _, err := s.ChannelMessageSendReply(
-					m.ChannelID,
+				if _, err := s.ChannelMessageSend(
+					c.Config.Admin.ReportSenryuChannelID,
 					replyText,
-					m.Reference(),
 				); err != nil {
 					logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
 					// 返信に失敗した場合、保存した川柳を削除して整合性を保つ

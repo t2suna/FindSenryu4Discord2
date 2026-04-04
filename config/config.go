@@ -53,6 +53,7 @@ type AdminConfig struct {
 	GuildID           string   `koanf:"guild_id"`           // Guild ID for admin commands
 	LogChannelID      string   `koanf:"log_channel_id"`     // Real-time notification channel (guild join/leave)
 	ReportChannelID   string   `koanf:"report_channel_id"`  // Daily report channel
+	ReportSenryuChannelID   string   `koanf:"report_senryu_channel_id"`  // Report detected senryu channel
 	ContactChannelID  string   `koanf:"contact_channel_id"` // Contact notification channel (future use)
 }
 

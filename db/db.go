@@ -3,6 +3,7 @@ package db
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/u16-io/FindSenryu4Discord/config"
@@ -51,6 +52,10 @@ func initDB() error {
 			return err
 		}
 		logger.Info("Connected to PostgreSQL database")
+		// GORMのインスタンスから標準の sql.DB オブジェクトを取得
+		sqlDB := DB.DB()
+		// Neonの5分スリープ対策として、アイドル時間を4分に設定
+		sqlDB.SetConnMaxIdleTime(4 * time.Minute)
 	default: // sqlite3
 		DB, err = gorm.Open("sqlite3", conf.Database.Path)
 		if err != nil {
